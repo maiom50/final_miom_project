@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Company, Storage
+from .models import User, Company, Storage, Employee
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -53,3 +53,17 @@ class StorageSerializer(serializers.ModelSerializer):
         model = Storage
         fields = '__all__'
         read_only_fields = ('created_at', 'updated_at')
+
+
+class EmployeeSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = Employee
+        fields = ('id', 'user', 'email', 'position', 'is_active', 'created_at')
+        read_only_fields = ('user', 'company', 'created_at')
+
+
+class CompanyEmployeeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    position = serializers.CharField(max_length=255, required=False, allow_blank=True)

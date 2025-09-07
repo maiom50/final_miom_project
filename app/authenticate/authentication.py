@@ -4,7 +4,6 @@ import jwt
 from django.conf import settings
 from .models import User
 
-
 class JWTAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get('Authorization')

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Company, Storage
+from authenticate.models import User, Company, Storage, Employee
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
@@ -22,4 +22,12 @@ class StorageAdmin(admin.ModelAdmin):
     list_display_links = ('id', 'name')
     list_filter = ('company', 'created_at')
     search_fields = ('name', 'address', 'company__name')
+    readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'company', 'position', 'is_active', 'created_at')
+    list_display_links = ('id', 'user')
+    list_filter = ('company', 'is_active', 'created_at')
+    search_fields = ('user__email', 'company__name', 'position')
     readonly_fields = ('created_at', 'updated_at')

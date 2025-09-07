@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import User, Company, Storage
+from authenticate.models import User, Company, Storage
 
 class AuthTests(APITestCase):
     def test_user_registration(self):

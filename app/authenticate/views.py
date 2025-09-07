@@ -9,7 +9,6 @@ from .serializers import (
     StorageSerializer
 )
 
-
 class UserRegistrationView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -24,7 +23,6 @@ class UserRegistrationView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class UserLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -38,16 +36,17 @@ class UserLoginView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class CompanyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
-        if hasattr(request.user, 'company'):
-            serializer = CompanySerializer(request.user.company)
+        if hasattr(request.user, 'owned_company'):
+            serializer = CompanySerializer(request.user.owned_company)
             return Response(serializer.data)
         return Response({'detail': 'Компания не найдена'}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
-        if hasattr(request.user, 'company'):
+        if hasattr(request.user, 'owned_company'):
             return Response(
                 {'detail': 'У пользователя уже есть компания'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -60,14 +59,14 @@ class CompanyView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
-        if not hasattr(request.user, 'company'):
+        if not hasattr(request.user, 'owned_company'):
             return Response(
                 {'detail': 'Компания не найдена'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = CompanySerializer(
-            request.user.company,
+            request.user.owned_company,
             data=request.data,
             partial=True
         )
@@ -77,31 +76,32 @@ class CompanyView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        if not hasattr(request.user, 'company'):
+        if not hasattr(request.user, 'owned_company'):
             return Response(
                 {'detail': 'Компания не найдена'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        company = request.user.company
+        company = request.user.owned_company
         company.delete()
         return Response({'detail': 'Компания удалена'}, status=status.HTTP_204_NO_CONTENT)
 
-
 class StorageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
-        if not hasattr(request.user, 'company'):
+        if not hasattr(request.user, 'owned_company'):
             return Response(
                 {'detail': 'Компания не найдена'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        storages = Storage.objects.filter(company=request.user.company)
+        storages = Storage.objects.filter(company=request.user.owned_company)
         serializer = StorageSerializer(storages, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        if not hasattr(request.user, 'company'):
+        if not hasattr(request.user, 'owned_company'):
             return Response(
                 {'detail': 'Компания не найдена'},
                 status=status.HTTP_404_NOT_FOUND
@@ -109,16 +109,17 @@ class StorageView(APIView):
 
         serializer = StorageSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(company=request.user.company)
+            serializer.save(company=request.user.owned_company)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class StorageDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get_object(self, pk, user):
         try:
             storage = Storage.objects.get(pk=pk)
-            if hasattr(user, 'company') and storage.company == user.company:
+            if hasattr(user, 'owned_company') and storage.company == user.owned_company:
                 return storage
             return None
         except Storage.DoesNotExist:
