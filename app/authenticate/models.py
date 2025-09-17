@@ -43,6 +43,7 @@ class Company(models.Model):
         verbose_name='Владелец'
     )
     name = models.CharField(max_length=255, verbose_name='Название компании')
+    inn = models.CharField(max_length=12, verbose_name='ИНН', unique=True, blank=True, null=True)
     description = models.TextField(blank=True, verbose_name='Описание')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

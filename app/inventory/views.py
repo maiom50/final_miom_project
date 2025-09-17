@@ -38,7 +38,7 @@ class ProductView(APIView):
         serializer = ProductSerializer(data=request.data)
         if serializer.is_valid():
             storage_id = request.data.get('storage')
-            from apps.companies.models import Storage
+            from app.companies.models import Storage
             try:
                 storage = Storage.objects.get(id=storage_id)
                 if storage.company != request.user.owned_company:
