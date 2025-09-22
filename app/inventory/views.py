@@ -2,9 +2,13 @@ from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import transaction
-from .models import Product, Supply, SupplyProduct
+from django.db.models import Sum
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+
+from .models import Product, StorageProduct, Supply, SupplyProduct
 from .serializers import (
     ProductSerializer,
+    StorageProductSerializer,
     SupplySerializer,
     SupplyCreateRequestSerializer,
     SupplyProductSerializer
@@ -12,7 +16,6 @@ from .serializers import (
 from companies.models import Supplier
 from authenticate.permissions import IsCompanyMember
 from authenticate.models import Storage
-
 
 class ProductView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
@@ -37,25 +40,9 @@ class ProductView(APIView):
 
         serializer = ProductSerializer(data=request.data)
         if serializer.is_valid():
-            storage_id = request.data.get('storage')
-            from app.companies.models import Storage
-            try:
-                storage = Storage.objects.get(id=storage_id)
-                if storage.company != request.user.owned_company:
-                    return Response(
-                        {'detail': 'Склад не принадлежит вашей компании'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            except Storage.DoesNotExist:
-                return Response(
-                    {'detail': 'Склад не найден'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            product = serializer.save(company=request.user.owned_company, quantity=0)
+            product = serializer.save(company=request.user.owned_company)
             return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ProductDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
@@ -104,6 +91,21 @@ class ProductDetailView(APIView):
         product.delete()
         return Response({'detail': 'Товар удален'}, status=status.HTTP_204_NO_CONTENT)
 
+class StorageProductView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
+
+    def get(self, request):
+        if not hasattr(request.user, 'owned_company'):
+            return Response(
+                {'detail': 'Компания не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        storage_products = StorageProduct.objects.filter(
+            storage__company=request.user.owned_company
+        )
+        serializer = StorageProductSerializer(storage_products, many=True)
+        return Response(serializer.data)
 
 class SupplyView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCompanyMember]
@@ -158,8 +160,21 @@ class SupplyView(APIView):
         for item in data['products']:
             try:
                 product = Product.objects.get(id=item['product_id'])
+                storage = Storage.objects.get(id=item['storage_id'])
+
                 if product.company != request.user.owned_company:
                     raise Product.DoesNotExist
+
+                if storage.company != request.user.owned_company:
+                    raise Storage.DoesNotExist
+
+                storage_product, created = StorageProduct.objects.get_or_create(
+                    storage=storage,
+                    product=product,
+                    defaults={'quantity': 0}
+                )
+                storage_product.quantity += item['quantity']
+                storage_product.save()
 
                 supply_product = SupplyProduct(
                     supply=supply,
@@ -169,15 +184,12 @@ class SupplyView(APIView):
                 )
                 supply_products.append(supply_product)
 
-                product.quantity += item['quantity']
-                product.save()
-
                 total_amount += product.purchase_price * item['quantity']
 
-            except Product.DoesNotExist:
+            except (Product.DoesNotExist, Storage.DoesNotExist):
                 supply.delete()
                 return Response(
-                    {'detail': f'Товар с ID {item["product_id"]} не найден'},
+                    {'detail': f'Товар или склад не найдены'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
